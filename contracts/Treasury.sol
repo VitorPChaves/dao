@@ -1,24 +1,18 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.9;
 
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-contract Treasury {
-    address public owner;
-    IERC20 public fundToken; // Token contract (BRZ or DREX in the future)
+contract Treasury is Ownable {
+    IERC20 public fundToken; // Token contract (e.g., BRZ or DREX in the future)
     address public serviceProvider;
     bool public isInitialPaymentReleased = false;
     bool public isFinalPaymentReleased = false;
 
     constructor(IERC20 _fundToken, address _serviceProvider) {
-        owner = msg.sender;
-        fundToken = _fundToken; // Set BRZ as the initial fund token
+        fundToken = _fundToken; // Set the funding token
         serviceProvider = _serviceProvider;
-    }
-
-    modifier onlyOwner() {
-        require(msg.sender == owner, "Not authorized");
-        _;
     }
 
     function releaseInitialPayment(uint amount) public onlyOwner {
