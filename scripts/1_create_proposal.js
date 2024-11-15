@@ -1,100 +1,128 @@
-const Token = artifacts.require("Token")
-const Timelock = artifacts.require("Timelock")
-const Governance = artifacts.require("Governance")
-const Treasury = artifacts.require("Treasury")
+const BairroGovernance = artifacts.require("BairroGovernance");
+const Treasury = artifacts.require("Treasury");
 
 module.exports = async function (callback) {
-    const [executor, proposer, voter1, voter2, voter3, voter4, voter5] = await web3.eth.getAccounts()
+    try {
+        const governance = await BairroGovernance.deployed();
+        const treasury = await Treasury.deployed();
 
-    let isReleased, funds, blockNumber, proposalState, vote
+        // Retrieve accounts
+        const accounts = await web3.eth.getAccounts();
+        const proposer = accounts[1]; // Example: use the second account as the proposer
+        const voters = accounts.slice(2, 7); // Example: 5 voters
+        const initialPaymentAmount = web3.utils.toWei("50", "mwei"); // 50 BRZ (assuming BRZ uses 6 decimals)
+        const proposalDescription =
+            "Proposal to release initial payment for neighborhood services";
 
-    const amount = web3.utils.toWei('5', 'ether')
+        console.log("Step 1: Preparing to create a proposal...\n");
 
-    const token = await Token.deployed()
-    await token.delegate(voter1, { from: voter1 })
-    await token.delegate(voter2, { from: voter2 })
-    await token.delegate(voter3, { from: voter3 })
-    await token.delegate(voter4, { from: voter4 })
-    await token.delegate(voter5, { from: voter5 })
+        // Step 1: Encode the function call to release initial payment
+        const encodedFunctionCall = await treasury.contract.methods
+            .releaseInitialPayment(initialPaymentAmount)
+            .encodeABI();
 
-    const treasury = await Treasury.deployed()
+        // Step 2: Submit the proposal
+        const proposalTx = await governance.propose(
+            [treasury.address], // Targets: The Treasury contract
+            [0], // Values: No ETH transfer with the call
+            [encodedFunctionCall], // Calldatas: Encoded function call
+            proposalDescription, // Description: Proposal details
+            { from: proposer } // Proposer account
+        );
 
-    isReleased = await treasury.isReleased()
-    console.log(`Funds released? ${isReleased}`)
+        const proposalId = proposalTx.logs[0].args.proposalId;
+        console.log(
+            `Proposal created successfully! Proposal ID: ${proposalId.toString()}\n`
+        );
+        console.log(`Proposal Description: ${proposalDescription}`);
 
-    funds = await web3.eth.getBalance(treasury.address)
-    console.log(`Funds inside of treasury: ${web3.utils.fromWei(funds.toString(), 'ether')} ETH\n`)
+        // Step 3: Voting process
+        console.log("Step 2: Casting votes...\n");
 
-    const governance = await Governance.deployed()
-    const encodedFunction = await treasury.contract.methods.releaseFunds().encodeABI()
-    const description = "Release Funds from Treasury"
+        // Simulating voting: voters 2, 3, and 4 vote 'For', voter 5 votes 'Against', voter 6 abstains
+        const voteFor = 1; // 'For'
+        const voteAgainst = 0; // 'Against'
+        const voteAbstain = 2; // 'Abstain'
 
-    const tx = await governance.propose([treasury.address], [0], [encodedFunction], description, { from: proposer })
+        await governance.castVote(proposalId, voteFor, { from: voters[0] }); // Voter 2
+        await governance.castVote(proposalId, voteFor, { from: voters[1] }); // Voter 3
+        await governance.castVote(proposalId, voteFor, { from: voters[2] }); // Voter 4
+        await governance.castVote(proposalId, voteAgainst, { from: voters[3] }); // Voter 5
+        await governance.castVote(proposalId, voteAbstain, { from: voters[4] }); // Voter 6
 
-    const id = tx.logs[0].args.proposalId
-    console.log(`Created Proposal: ${id.toString()}\n`)
+        console.log("Votes have been cast.\n");
 
-    proposalState = await governance.state.call(id)
-    console.log(`Current state of proposal: ${proposalState.toString()} (Pending) \n`)
+        // Step 4: Fast forward to the end of the 1-month voting period
+        console.log(
+            "Step 3: Fast-forwarding to the end of the voting period...\n"
+        );
+        await advanceBlocks(199152); // 1 month of blocks
 
-    const snapshot = await governance.proposalSnapshot.call(id)
-    console.log(`Proposal created on block ${snapshot.toString()}`)
+        // Step 5: Check the proposal state
+        const proposalState = await governance.state(proposalId);
+        console.log(
+            `Proposal state after voting: ${proposalState} (Succeeded = 4, Defeated = 3)\n`
+        );
 
-    const deadline = await governance.proposalDeadline.call(id)
-    console.log(`Proposal deadline on block ${deadline.toString()}\n`)
+        if (proposalState.toString() !== "4") {
+            console.log("Proposal did not succeed. Exiting.");
+            return callback();
+        }
 
-    blockNumber = await web3.eth.getBlockNumber()
-    console.log(`Current blocknumber: ${blockNumber}\n`)
+        // Step 6: Queue and execute the proposal
+        console.log("Step 4: Queueing and executing the proposal...\n");
 
-    const quorum = await governance.quorum(blockNumber - 1)
-    console.log(`Number of votes required to pass: ${web3.utils.fromWei(quorum.toString(), 'ether')}\n`)
+        const descriptionHash = web3.utils.sha3(proposalDescription);
 
-    // Vote
-    console.log(`Casting votes...\n`)
+        await governance.queue(
+            [treasury.address],
+            [0],
+            [encodedFunctionCall],
+            descriptionHash,
+            { from: proposer }
+        );
+        console.log("Proposal queued successfully.\n");
 
-    // 0 = Against, 1 = For, 2 = Abstain
-    vote = await governance.castVote(id, 1, { from: voter1 })
-    vote = await governance.castVote(id, 1, { from: voter2 })
-    vote = await governance.castVote(id, 1, { from: voter3 })
-    vote = await governance.castVote(id, 0, { from: voter4 })
-    vote = await governance.castVote(id, 2, { from: voter5 })
+        await governance.execute(
+            [treasury.address],
+            [0],
+            [encodedFunctionCall],
+            descriptionHash,
+            { from: proposer }
+        );
+        console.log("Proposal executed successfully. Funds released.\n");
 
-    // States: Pending, Active, Canceled, Defeated, Succeeded, Queued, Expired, Executed
-    proposalState = await governance.state.call(id)
-    console.log(`Current state of proposal: ${proposalState.toString()} (Active) \n`)
+        // Step 7: Track funds
+        const isInitialPaymentReleased =
+            await treasury.isInitialPaymentReleased();
+        const treasuryBalance = await web3.eth.getBalance(treasury.address);
 
-    // NOTE: Transfer serves no purposes, it's just used to fast foward one block after the voting period ends
-    await token.transfer(proposer, amount, { from: executor })
+        console.log(`Funds released? ${isInitialPaymentReleased}`);
+        console.log(
+            `Remaining funds in Treasury: ${web3.utils.fromWei(treasuryBalance, "ether")} ETH\n`
+        );
 
-    const { againstVotes, forVotes, abstainVotes } = await governance.proposalVotes.call(id)
-    console.log(`Votes For: ${web3.utils.fromWei(forVotes.toString(), 'ether')}`)
-    console.log(`Votes Against: ${web3.utils.fromWei(againstVotes.toString(), 'ether')}`)
-    console.log(`Votes Neutral: ${web3.utils.fromWei(abstainVotes.toString(), 'ether')}\n`)
+        callback();
+    } catch (error) {
+        console.error("Error in proposal process:", error);
+        callback(error);
+    }
+};
 
-    blockNumber = await web3.eth.getBlockNumber()
-    console.log(`Current blocknumber: ${blockNumber}\n`)
-
-    proposalState = await governance.state.call(id)
-    console.log(`Current state of proposal: ${proposalState.toString()} (Succeeded) \n`)
-
-    // Queue 
-    const hash = web3.utils.sha3("Release Funds from Treasury")
-    await governance.queue([treasury.address], [0], [encodedFunction], hash, { from: executor })
-
-    proposalState = await governance.state.call(id)
-    console.log(`Current state of proposal: ${proposalState.toString()} (Queued) \n`)
-
-    // Execute
-    await governance.execute([treasury.address], [0], [encodedFunction], hash, { from: executor })
-
-    proposalState = await governance.state.call(id)
-    console.log(`Current state of proposal: ${proposalState.toString()} (Executed) \n`)
-
-    isReleased = await treasury.isReleased()
-    console.log(`Funds released? ${isReleased}`)
-
-    funds = await web3.eth.getBalance(treasury.address)
-    console.log(`Funds inside of treasury: ${web3.utils.fromWei(funds.toString(), 'ether')} ETH\n`)
-
-    callback()
+async function advanceBlocks(blocks) {
+    await web3.currentProvider.send(
+        {
+            method: "evm_increaseTime",
+            params: [blocks * 13], // Approx. 13 seconds per block
+        },
+        () => {}
+    );
+    await web3.currentProvider.send(
+        {
+            method: "evm_mine",
+            params: [],
+        },
+        () => {}
+    );
+    console.log(`Fast-forwarded ${blocks} blocks.`);
 }

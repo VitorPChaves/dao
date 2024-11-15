@@ -1,5 +1,5 @@
 {
-  "name": "governance",
+  "name": "dao",
   "version": "1.0.0",
   "description": "",
   "main": "truffle-config.js",
@@ -13,6 +13,25 @@
   "license": "ISC",
   "dependencies": {
     "@openzeppelin/contracts": "^4.4.2",
-    "web3": "^1.7.0"
+    "web3": "^4.15.0"
+  },
+  "devDependencies": {
+    "prettier": "^3.3.3",
+    "prettier-plugin-solidity": "^1.4.1"
+  },
+  "prettier": {
+    "plugins": [
+      "prettier-plugin-solidity"
+    ],
+    "overrides": [
+      {
+        "files": "*.sol",
+        "options": {
+          "parser": "solidity-parse",
+          "printWidth": 80,
+          "tabWidth": 4
+        }
+      }
+    ]
   }
 }
