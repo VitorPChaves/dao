@@ -31,7 +31,7 @@ module.exports = async function (callback) {
     console.log("Tokens delegated to proposer.");
 
     // Fast-forward one block to ensure delegation snapshot updates
-    // await advanceBlocks(1);
+    await advanceBlocks(1);
     console.log("Advanced one block for delegation snapshot update.");
 
     // Check proposer votes after delegation
@@ -91,7 +91,7 @@ module.exports = async function (callback) {
       const votingDelay = await governance.votingDelay();
       console.log(`Voting delay: ${votingDelay.toString()} blocks.`);
 
-      //   await advanceBlocks(votingDelay.toNumber());
+      await advanceBlocks(votingDelay.toNumber());
       console.log(`Fast-forwarded ${votingDelay.toString()} blocks.`);
     }
 
@@ -117,7 +117,7 @@ module.exports = async function (callback) {
     console.log("Step 5: Advancing blocks to conclude voting period...\n");
 
     const votingPeriod = await governance.votingPeriod();
-    // await advanceBlocks(votingPeriod.toNumber());
+    await advanceBlocks(votingPeriod.toNumber());
     console.log(`Fast-forwarded ${votingPeriod.toString()} blocks.`);
 
     console.log("Step 6: Executing initial payment proposal...\n");
@@ -166,7 +166,7 @@ module.exports = async function (callback) {
       "Step 9: Advancing blocks to conclude voting period for final payment...\n",
     );
 
-    // await advanceBlocks(votingPeriod.toNumber());
+    await advanceBlocks(votingPeriod.toNumber());
     console.log(`Fast-forwarded ${votingPeriod.toString()} blocks.`);
 
     const finalProposalState = await governance.state(finalProposalId);
@@ -195,12 +195,12 @@ module.exports = async function (callback) {
   }
 };
 
-// async function advanceBlocks(blocks) {
-//   for (let i = 0; i < blocks; i++) {
-//     await web3.currentProvider.send(
-//       { method: "evm_mine", params: [] },
-//       () => {},
-//     );
-//   }
-//   console.log(`Fast-forwarded ${blocks} blocks.`);
-// }
+async function advanceBlocks(blocks) {
+  for (let i = 0; i < blocks; i++) {
+    await web3.currentProvider.send(
+      { method: "evm_mine", params: [] },
+      () => {},
+    );
+  }
+  console.log(`Fast-forwarded ${blocks} blocks.`);
+}
