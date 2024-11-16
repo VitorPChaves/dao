@@ -27,20 +27,21 @@ contract BairroGovernance is Governor, GovernorVotes, GovernorCountingSimple {
     }
 
     function votingDelay() public pure override returns (uint256) {
-        return 10; // Example: Voting begins 10 blocks after proposal creation
+        return 1; // Example: Voting begins 10 blocks after proposal creation
     }
 
     function votingPeriod() public pure override returns (uint256) {
-        return 199152; // Approx. 1 month of voting period (in blocks)
+        // return 199152; // Approx. 1 month of voting period (in blocks)
+        return 1; // Approx. 1 month of voting period (in blocks)
     }
 
     function quorum(
         uint256 /* blockNumber */
     ) public pure override returns (uint256) {
-        return 100; // Fixed quorum of 100 votes
+        return 1; // Fixed quorum of 100 votes
     }
 
     function proposalThreshold() public pure override returns (uint256) {
-        return 10; // Minimum of 10 VOTE tokens required to create a proposal
+        return 1; // Minimum of 10 VOTE tokens required to create a proposal
     }
 }
