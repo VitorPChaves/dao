@@ -4,27 +4,41 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Votes.sol";
 
 contract VoteToken is ERC20Votes {
-    address public minter;
+    address public minter; // The only entity allowed to mint tokens
+    mapping(address => bool) public hasToken; // Track if an address already owns a token
+
+    // Events
+    event TokensAssigned(address indexed user);
 
     constructor()
         ERC20("Bairro Vote Token", "VOTE")
         ERC20Permit("Bairro Vote Token")
     {
-        // Assign the deployer as the initial minter
-        minter = msg.sender;
-        _mint(msg.sender, 1000000 * 10 ** decimals()); // Optional: Mint initial supply to the deployer
+        minter = msg.sender; // Assign deployer as the initial minter
     }
 
-    // Function to set a new minter
-    function setMinter(address _minter) external {
-        require(msg.sender == minter, "Only minter can update");
-        minter = _minter;
+    // Function to assign a single token to a user
+    function assignToken(address to) external {
+        require(msg.sender == minter, "Only minter can assign tokens");
+        require(!hasToken[to], "User already owns a token");
+
+        _mint(to, 1 * 10 ** decimals()); // Mint exactly 1 token
+        hasToken[to] = true; // Mark that the user owns a token
+        emit TokensAssigned(to);
     }
 
-    // Public mint function
-    function mint(address to, uint256 amount) external {
-        require(msg.sender == minter, "Only minter can mint");
-        _mint(to, amount);
+    // Prevent transfers of tokens
+    function _beforeTokenTransfer(
+        address from,
+        address to,
+        uint256 amount
+    ) internal override {
+        // Allow minting and burning, but restrict transfers between users
+        require(
+            from == address(0) || to == address(0),
+            "Transfers between users are not allowed"
+        );
+        super._beforeTokenTransfer(from, to, amount);
     }
 
     // Required overrides for ERC20Votes
