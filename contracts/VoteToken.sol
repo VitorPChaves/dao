@@ -20,6 +20,11 @@ contract VoteToken is ERC20Votes, Ownable {
         minter = msg.sender; // Assign deployer as the initial minter
     }
 
+    // Override decimals to set it to 0
+    function decimals() public view virtual override returns (uint8) {
+        return 0;
+    }
+
     // Function to assign a single token to a user
     function assignToken(address to) external {
         require(msg.sender == minter, "Only minter can assign tokens");
