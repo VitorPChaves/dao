@@ -124,7 +124,6 @@ contract BairroGovernance {
         emit VoteCast(msg.sender, proposalId, support);
     }
 
-    // **Updated Execution Function**
     function executeProposal(uint256 proposalId) external {
         Proposal storage proposal = proposals[proposalId];
         ProposalState state = getProposalState(proposalId);
